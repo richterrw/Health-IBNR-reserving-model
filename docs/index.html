@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health IBNR Reserving Model</title>
+<meta name="description" content="Monthly health IBNR valuation: completion factor and chain ladder reserves, PMPM trend, large-claim pool, actuarial judgment, reserve report and live Excel model.">
+<style>
+:root {
+  --bg: #f9f9f7; --surface: #ffffff; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --line: #e1e0d9; --accent: #2a78d6; --accent-ink: #1c5cab; --good: #006300; --bad: #b42323;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+header { background: var(--surface); border-bottom: 1px solid var(--line); padding: 48px 0 36px; }
+.eyebrow { color: var(--accent-ink); font-weight: 600; font-size: 14px; letter-spacing: .02em; margin: 0 0 8px; }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 12px; }
+.lede { color: var(--ink2); font-size: 18px; max-width: 760px; margin: 0 0 24px; }
+.buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { display: inline-block; padding: 10px 16px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;
+  border: 1px solid var(--line); color: var(--ink); background: var(--surface); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn:hover { border-color: var(--accent); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 32px 0 8px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.kpi .label { color: var(--ink2); font-size: 13px; margin: 0 0 4px; }
+.kpi .value { font-size: 28px; font-weight: 700; margin: 0; line-height: 1.2; }
+.kpi .note { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+section { padding: 36px 0 8px; }
+h2 { font-size: 24px; margin: 0 0 12px; }
+h3 { font-size: 17px; margin: 24px 0 8px; }
+p { margin: 0 0 14px; }
+.muted { color: var(--ink2); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin: 16px 0; }
+.card img { width: 100%; height: auto; display: block; }
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; background: var(--surface);
+  border: 1px solid var(--line); border-radius: 10px; margin: 16px 0; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 10px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+td:first-child { white-space: normal; min-width: 170px; }
+thead th { color: var(--ink2); font-weight: 600; background: var(--bg); }
+tbody tr:last-child td { border-bottom: 0; }
+tr.strong td { font-weight: 700; }
+td.wrap-cell { white-space: normal; text-align: left; min-width: 280px; }
+.num { font-variant-numeric: tabular-nums; }
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.steps li { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px 14px 52px; position: relative; }
+.steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 16px; top: 14px; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--accent); color: #fff; font-size: 13px; font-weight: 700; display: grid; place-items: center; }
+.steps b { display: block; }
+ul.clean { padding-left: 20px; margin: 0 0 14px; }
+ul.clean li { margin: 0 0 6px; }
+.callout { border-left: 4px solid var(--accent); background: var(--surface); padding: 14px 16px; border-radius: 0 10px 10px 0; margin: 16px 0; }
+.good { color: var(--good); font-weight: 700; }
+.bad { color: var(--bad); font-weight: 700; }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; background: var(--line); padding: 1px 5px; border-radius: 4px; }
+footer { border-top: 1px solid var(--line); margin-top: 48px; padding: 24px 0 40px; color: var(--ink2); font-size: 14px; }
+a { color: var(--accent-ink); }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Health actuarial · Reserving</p>
+    <h1>Health IBNR Reserving Model</h1>
+    <p class="lede">A monthly medical IBNR valuation, built the way a health plan valuation team runs its month-end close:
+    lag triangles, completion factors, chain ladder and Mack ranges, PMPM trend, a large-claim pool, and logged actuarial judgment.
+    The output is a reserve report with ASOP 43 disclosures and a live-formula Excel model.</p>
+    <div class="buttons">
+      <a class="btn primary" href="https://github.com/richterrw/Health-IBNR-reserving-model/blob/main/output/reserve_report_2026-09.md">Read the September 2026 reserve report</a>
+      <a class="btn" href="https://github.com/richterrw/Health-IBNR-reserving-model/raw/main/output/ibnr_model_2026-09.xlsx">Download the Excel model</a>
+      <a class="btn" href="https://github.com/richterrw/Health-IBNR-reserving-model">View the code</a>
+    </div>
+    <div class="kpis"><div class="kpi"><p class="label">Recommended liability</p><p class="value">$249.3M</p><p class="note">IBNR + 7.5% margin + 2.5% CAE</p></div><div class="kpi"><p class="label">Best-estimate IBNR</p><p class="value">$226.2M</p><p class="note">September 2026 close</p></div><div class="kpi"><p class="label">Hindsight error</p><p class="value">1.9%</p><p class="note">mean absolute, vs 10.3% for the chain ladder</p></div><div class="kpi"><p class="label">Backlog close, with judgment</p><p class="value">+2.5%</p><p class="note">June 2026; -5.0% without</p></div></div>
+  </div>
+</header>
+<main class="wrap">
+
+<section>
+  <h2>What it does</h2>
+  <ol class="steps">
+    <li><b>Lag triangles</b>Paid claims by incurred month × months of development, by service category.</li>
+    <li><b>Completion factors</b>Recent 6-month averages, excluding the high and low; ultimate = paid ÷ completion.</li>
+    <li><b>PMPM / Bornhuetter-Ferguson</b>For the newest 3 months, where paid claims aren't credible yet.</li>
+    <li><b>Large-claim pool</b>Claimants over $250k are reserved separately on a trended pooled PMPM.</li>
+    <li><b>Actuarial judgment</b>Excluded diagonals, backlog restatement and factor overrides, each logged with a rationale.</li>
+    <li><b>Monthly report</b>Roll-forward, hindsight test, paid-month diagnostic, data checks and ASOP 43 disclosures.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Results at the September 2026 valuation</h2>
+  <p class="muted">The data is synthetic, so the true answer is known. Every method is scored against it at the current close and at 10 prior month-ends.</p>
+  <div class="table-wrap"><table><thead><tr><th>Method</th><th>IBNR</th><th>vs. true IBNR</th><th>Hindsight MAE, 10 closes</th></tr></thead><tbody><tr><td><b>Selected</b> (CF + PMPM/B-F + large-claim pool + judgment)</td><td class="num">$226.2M</td><td class="num">+2.9%</td><td class="num">1.9%</td></tr><tr><td>Same, mechanical (no judgment)</td><td class="num">$225.4M</td><td class="num">+2.5%</td><td class="num">2.1%</td></tr><tr><td>Completion factor only</td><td class="num">$227.6M</td><td class="num">+3.5%</td><td class="num">4.4%</td></tr><tr><td>Chain ladder (all-history volume-weighted)</td><td class="num">$245.5M</td><td class="num">+11.6%</td><td class="num">10.3%</td></tr></tbody></table></div>
+  <p>The chain ladder over-reserves by about 10% because claims now pay faster than they used to.
+  All-history factors overstate the remaining runout; recent-average completion factors track the change.</p>
+  <div class="card"><img src="assets/ibnr_by_month.png" alt="IBNR by incurred month for each method against true IBNR, last 12 incurred months" loading="lazy"></div>
+</section>
+
+<section>
+  <h2>Actuarial judgment</h2>
+  <p>Every departure from the formula lives in <code>selections.json</code> with a written reason, and the report prints it.
+  A selection only applies to closes on or after the month it references, so the hindsight test uses only what was knowable at each close.</p>
+  
+<div class="callout">At the <b>June 2026</b> close, claims operations were in the middle of a processing backlog.
+The mechanical method missed true IBNR by <span class="bad">-5.0%</span>. Restating paid claims for the pended inventory
+and excluding the distorted payment months brought it to <span class="good">+2.5%</span>, in line with an ordinary month.</div>
+  <div class="card"><img src="assets/hindsight.png" alt="Hindsight test: IBNR error at each prior close for each method" loading="lazy"></div>
+  <div class="table-wrap"><table><thead><tr><th>Selection</th><th>Rationale</th></tr></thead><tbody><tr><td>Exclude paid month 2026-06 from link-ratio averages</td><td class="wrap-cell"><span class="muted">Claims operations reported a processing slowdown in June 2026 (claims system migration). The paid-month diagnostic shows June payments at 87% of expected. Link ratios on this diagonal understate development and are excluded from the averages.</span></td></tr><tr><td>Exclude paid month 2026-07 from link-ratio averages</td><td class="wrap-cell"><span class="muted">Catch-up of the June backlog: July payments ran 128% of expected. Link ratios on this diagonal overstate development and are excluded from the averages.</span></td></tr><tr><td>Restate paid for pended backlog at the 2026-06 close</td><td class="wrap-cell"><span class="muted">At the June 2026 close, paid-to-date on every open month is short by the delayed payments. Claims operations&#x27; pended-inventory report gives the excess pended dollars by category. Paid is grossed up by paid / (paid + excess pended) before completion factors are applied, so the backlog is reserved for rather than read as lower cost.</span></td></tr></tbody></table></div>
+</section>
+
+<section>
+  <h2>Reserve by category</h2>
+  <div class="table-wrap"><table><thead><tr><th>Category</th><th>Paid to date</th><th>IBNR</th><th>Margin</th><th>CAE</th><th>Total liability</th></tr></thead><tbody><tr><td>Inpatient (ex. large)</td><td class="num">$922.9M</td><td class="num">$65.1M</td><td class="num">$4.9M</td><td class="num">$1.8M</td><td class="num">$71.8M</td></tr><tr><td>Outpatient</td><td class="num">$1,494.3M</td><td class="num">$71.9M</td><td class="num">$5.4M</td><td class="num">$1.9M</td><td class="num">$79.2M</td></tr><tr><td>Professional</td><td class="num">$1,655.6M</td><td class="num">$45.7M</td><td class="num">$3.4M</td><td class="num">$1.2M</td><td class="num">$50.3M</td></tr><tr><td>Large claims (&gt;$250k)</td><td class="num">$406.6M</td><td class="num">$43.6M</td><td class="num">$3.3M</td><td class="num">$1.2M</td><td class="num">$48.0M</td></tr><tr class="strong"><td>Total</td><td class="num">$4,479.5M</td><td class="num">$226.2M</td><td class="num">$17.0M</td><td class="num">$6.1M</td><td class="num">$249.3M</td></tr></tbody></table></div>
+  <div class="card"><img src="assets/completion_factors.png" alt="Selected completion factors by lag for each category" loading="lazy"></div>
+</section>
+
+<section>
+  <h2>PMPM trend</h2>
+  <p>A log-linear regression with calendar-month seasonality sets the expected cost for immature months.
+  Deductibles make Q1 run low and Q4 high. The book's cost level, trend and large-claim frequency are checked against the Milliman Medical Index,
+  PwC's medical cost trend survey, and published high-cost-claimant studies.</p>
+  <div class="card"><img src="assets/pmpm_trend.png" alt="Monthly and rolling 12-month incurred PMPM" loading="lazy"></div>
+</section>
+
+<section>
+  <h2>Validation</h2>
+  <ul class="clean">
+    <li><b>Published benchmark.</b> The chain ladder and Mack standard errors reproduce the Taylor-Ashe (1983) results used by Mack (1993) and R's <code>ChainLadder</code>.</li>
+    <li><b>Excel ties to Python.</b> The live workbook is recalculated in CI and ties to the Python engine; an override typed into the workbook matches the same override in Python.</li>
+    <li><b>Known truth.</b> Every prior close is re-run on the data as it stood then and scored against true IBNR.</li>
+    <li><b>Data checks.</b> 7 of 7 reconciliation checks pass: the extract ties to the triangles, dates are valid, membership is complete, large claims sit within inpatient.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Outputs</h2>
+  <ul class="clean">
+    <li><a href="https://github.com/richterrw/Health-IBNR-reserving-model/blob/main/output/reserve_report_2026-09.md">Reserve report</a>: summary, methodology, selections, trend, roll-forward, hindsight, diagnostics, ASOP 43 disclosures.</li>
+    <li><a href="https://github.com/richterrw/Health-IBNR-reserving-model/raw/main/output/ibnr_model_2026-09.xlsx">Live Excel model</a>: every factor and reserve is a formula, with yellow override cells.</li>
+    <li><a href="https://github.com/richterrw/Health-IBNR-reserving-model/raw/main/output/reserve_exhibits_2026-09.xlsx">Exhibits workbook</a>: triangles, link ratios, Mack detail, roll-forward, hindsight, data checks.</li>
+    <li><a href="https://github.com/richterrw/Health-IBNR-reserving-model">Source code and tests</a>: Python, run with <code>python -m ibnr</code>.</li>
+  </ul>
+</section>
+
+</main>
+<footer>
+  <div class="wrap">
+    Built by <a href="https://github.com/richterrw">richterrw</a>. Synthetic data; illustrative only, not a Statement of Actuarial Opinion.
+    This page is generated by <code>python -m ibnr</code> from the same run as the report.
+  </div>
+</footer>
+</body>
+</html>

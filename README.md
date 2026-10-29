@@ -11,7 +11,7 @@ A monthly medical IBNR valuation, built the way a health plan valuation team run
 5. Apply **actuarial judgment** through a logged selections file: diagonal exclusions, backlog restatement and factor overrides, each with its rationale.
 6. Produce a **monthly reserve report**. It includes the reserve summary with margin and CAE, roll-forward, hindsight test, paid-month diagnostic, data reconciliation and **ASOP No. 43** disclosures. Alongside it are an exhibits workbook and a **live-formula Excel model**.
 
-**[Read the September 2026 reserve report →](output/reserve_report_2026-09.md)**
+**[Project site →](https://richterrw.github.io/Health-IBNR-reserving-model/)** · **[Read the September 2026 reserve report →](output/reserve_report_2026-09.md)**
 
 ![Hindsight test](output/charts/hindsight.png)
 
@@ -128,9 +128,11 @@ ibnr/
   valuation.py    per-category valuation, large-claim pool, judgment, roll-forward, hindsight, diagnostics, reconciliation
   report.py       markdown report (with ASOP 43 section), exhibits workbook, charts
   excel_model.py  live-formula Excel model
+  site.py         GitHub Pages site (docs/), generated from the same run
   config.py       every assumption, plus loading the selections log
   __main__.py     CLI
 selections.json   actuarial selections log with rationale
 tests/            unit tests, Taylor-Ashe benchmark, end-to-end checks against the answer key, Excel recalculation
 output/           September 2026 report, workbooks and charts
+docs/             project site served by GitHub Pages
 ```

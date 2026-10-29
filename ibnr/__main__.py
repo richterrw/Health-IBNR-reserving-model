@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from . import excel_model, report, synthetic, triangle, valuation
+from . import excel_model, report, site, synthetic, triangle, valuation
 from .config import ValuationConfig
 
 
@@ -17,6 +17,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--valuation-month", default="2026-09", help="Paid-through month, YYYY-MM")
     p.add_argument("--data-dir", default="data")
     p.add_argument("--out-dir", default="output")
+    p.add_argument("--site-dir", default="docs", help="Where to write the GitHub Pages site; 'none' to skip")
     p.add_argument("--selections", default="selections.json", help="Actuarial selections log; 'none' for a mechanical run")
     p.add_argument("--regenerate", action="store_true", help="Rebuild the synthetic data set first")
     p.add_argument("--no-large-claims", action="store_true", help="Leave large claimants in the inpatient triangle")
@@ -64,6 +65,8 @@ def main(argv: list[str] | None = None) -> None:
     out = Path(args.out_dir)
     paths = report.write_all(pack, out)
     paths["model"] = excel_model.write(current, out / f"ibnr_model_{val}.xlsx")
+    if args.site_dir.lower() != "none":
+        paths["site"] = site.write(pack, paths["charts"], Path(args.site_dir))
 
     s = current.summary().loc["Total"]
     print(f"Valuation {val}: selected IBNR ${s['ibnr_selected']:,.0f}; total liability ${s['total_liability']:,.0f}")

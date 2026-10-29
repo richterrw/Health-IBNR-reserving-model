@@ -40,8 +40,8 @@ def _millions(x, _):
     return f"${x / 1e6:,.0f}M"
 
 
-def _legend(ax: plt.Axes) -> None:
-    ax.legend(frameon=False, fontsize=9, labelcolor=INK2, loc="upper left", bbox_to_anchor=(0, -0.1), ncol=4, handlelength=1.6)
+def _legend(ax: plt.Axes, ncol: int = 4) -> None:
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK2, loc="upper left", bbox_to_anchor=(0, -0.1), ncol=ncol, handlelength=1.6)
 
 
 def chart_ibnr_by_month(v: Valuation, truth: pd.Series | None, path: Path) -> None:
@@ -56,7 +56,7 @@ def chart_ibnr_by_month(v: Valuation, truth: pd.Series | None, path: Path) -> No
     ax.set_xticks(x, [m.strftime("%b %y") for m in tm.index])
     ax.yaxis.set_major_formatter(FuncFormatter(_millions))
     _style(ax, "IBNR by incurred month", f"Valuation {v.valuation_month.strftime('%B %Y')}, last 12 incurred months, all categories")
-    _legend(ax)
+    _legend(ax, ncol=2)
     fig.tight_layout()
     fig.savefig(path, dpi=150, facecolor=SURFACE)
     plt.close(fig)
