@@ -2,17 +2,39 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 
-def load(claims_path: str, membership_path: str) -> tuple[pd.DataFrame, pd.Series]:
-    claims = pd.read_csv(claims_path)
-    claims["incurred_month"] = pd.PeriodIndex(claims["incurred_month"], freq="M")
-    claims["paid_month"] = pd.PeriodIndex(claims["paid_month"], freq="M")
-    mem = pd.read_csv(membership_path)
+@dataclass
+class Book:
+    """Everything a valuation reads from the warehouse."""
+
+    claims: pd.DataFrame  # incurred_month, paid_month, service_category, paid_amount
+    members: pd.Series  # member months by incurred month
+    large_claims: pd.DataFrame | None = None  # claimant_id, incurred_month, paid_month, paid_amount
+    pended: pd.DataFrame | None = None  # paid_month, service_category, excess_pended
+
+
+def _periods(df: pd.DataFrame, cols: tuple[str, ...] = ("incurred_month", "paid_month")) -> pd.DataFrame:
+    for c in cols:
+        df[c] = pd.PeriodIndex(df[c].astype(str), freq="M")
+    return df
+
+
+def load(data_dir: str | Path) -> Book:
+    d = Path(data_dir)
+    claims = _periods(pd.read_csv(d / "claims.csv"))
+    mem = pd.read_csv(d / "membership.csv")
     members = pd.Series(mem["member_months"].values, index=pd.PeriodIndex(mem["incurred_month"], freq="M"), name="member_months")
-    return claims, members
+    large = _periods(pd.read_csv(d / "large_claims.csv")) if (d / "large_claims.csv").exists() else None
+    pended = None
+    if (d / "pended_inventory.csv").exists():
+        pended = _periods(pd.read_csv(d / "pended_inventory.csv"), ("paid_month",))
+    return Book(claims, members, large, pended)
 
 
 def as_of(claims: pd.DataFrame, valuation_month: pd.Period) -> pd.DataFrame:
@@ -20,7 +42,13 @@ def as_of(claims: pd.DataFrame, valuation_month: pd.Period) -> pd.DataFrame:
     return claims[(claims["paid_month"] <= valuation_month) & (claims["incurred_month"] <= valuation_month)]
 
 
-def build(claims: pd.DataFrame, valuation_month: pd.Period, category: str | None = None, value: str = "paid_amount") -> pd.DataFrame:
+def build(
+    claims: pd.DataFrame,
+    valuation_month: pd.Period,
+    category: str | None = None,
+    value: str = "paid_amount",
+    start: pd.Period | None = None,
+) -> pd.DataFrame:
     """Cumulative paid triangle. Cells beyond the valuation diagonal are NaN.
 
     Row index: incurred month. Columns: lag 0..n-1, where lag 0 is payment
@@ -31,10 +59,11 @@ def build(claims: pd.DataFrame, valuation_month: pd.Period, category: str | None
         df = df[df["service_category"] == category]
     lag = (df["paid_month"] - df["incurred_month"]).map(lambda d: d.n)
     inc = df.assign(lag=lag.values).pivot_table(index="incurred_month", columns="lag", values=value, aggfunc="sum")
-    start = df["incurred_month"].min()
+    start = start if start is not None else df["incurred_month"].min()
     rows = pd.period_range(start, valuation_month, freq="M")
     n = len(rows)
     inc = inc.reindex(index=rows, columns=range(n)).fillna(0.0)
+    inc.columns.name = None
     cum = inc.cumsum(axis=1)
     age = np.array([(valuation_month - r).n for r in rows])
     mask = np.arange(n)[None, :] > age[:, None]

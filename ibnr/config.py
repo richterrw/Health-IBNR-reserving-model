@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 
 
 @dataclass
@@ -35,9 +37,55 @@ class ValuationConfig:
     # If set, overrides the fitted annual trend for every category.
     selected_annual_trend: float | None = None
 
+    # --- Large claims -------------------------------------------------------------
+    # Claimants above the threshold are removed from the inpatient triangle and
+    # reserved separately: B-F on a pooled large-claim PMPM for every month.
+    large_claim_threshold: float = 250_000.0
+    large_claim_trend: float = 0.09  # frequency + severity trend on the pooled PMPM
+    large_claim_experience_months: int = 24  # history used for the pooled PMPM
+    large_claim_credible_lag: int = 6  # months younger than this are excluded from the pool
+
     # --- Reserve loads ------------------------------------------------------------
     margin_pct: float = 0.075  # provision for adverse deviation on IBNR
     cae_pct: float = 0.025  # claim adjustment expense on IBNR + margin
 
     # --- Mack range -----------------------------------------------------------------
     range_percentiles: tuple[float, ...] = field(default=(0.75, 0.95))
+
+    # --- Actuarial judgment (see selections.json) -------------------------------------
+    # Paid-month diagonals whose link ratios are left out of the averages.
+    exclude_paid_months: tuple[str, ...] = ()
+    # Paid months whose payments are grossed up for a known processing backlog
+    # when that month is the valuation month (paid / measured actual-to-expected).
+    restate_paid_months: tuple[str, ...] = ()
+    # Hard link-ratio overrides: {category: {lag: ratio}}.
+    factor_overrides: dict[str, dict[int, float]] = field(default_factory=dict)
+    # Rationale for each selection, keyed by a short label. Reported verbatim.
+    selection_notes: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def has_judgment(self) -> bool:
+        return bool(self.exclude_paid_months or self.restate_paid_months or self.factor_overrides)
+
+    def mechanical(self) -> "ValuationConfig":
+        """The same assumptions with every judgmental selection removed."""
+        return replace(self, exclude_paid_months=(), restate_paid_months=(), factor_overrides={}, selection_notes={})
+
+    def with_selections(self, path: str | Path) -> "ValuationConfig":
+        """Apply a selections log (JSON) on top of this config."""
+        data = json.loads(Path(path).read_text())
+        notes = {}
+        for kind in ("exclude_paid_months", "restate_paid_months"):
+            for month, why in data.get(kind, {}).items():
+                notes[f"{kind}:{month}"] = why
+        overrides: dict[str, dict[int, float]] = {}
+        for item in data.get("factor_overrides", []):
+            overrides.setdefault(item["category"], {})[int(item["lag"])] = float(item["link_ratio"])
+            notes[f"factor_override:{item['category']}:lag {item['lag']}"] = item["rationale"]
+        return replace(
+            self,
+            exclude_paid_months=tuple(data.get("exclude_paid_months", {})),
+            restate_paid_months=tuple(data.get("restate_paid_months", {})),
+            factor_overrides=overrides,
+            selection_notes=notes,
+        )

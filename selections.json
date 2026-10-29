@@ -1,0 +1,11 @@
+{
+  "_comment": "Actuarial selections log. Each entry records a departure from the mechanical method and why. A selection applies to any valuation on or after the month it references, so hindsight re-runs use only what was knowable at each close.",
+  "exclude_paid_months": {
+    "2026-06": "Claims operations reported a processing slowdown in June 2026 (claims system migration). The paid-month diagnostic shows June payments at 87% of expected. Link ratios on this diagonal understate development and are excluded from the averages.",
+    "2026-07": "Catch-up of the June backlog: July payments ran 128% of expected. Link ratios on this diagonal overstate development and are excluded from the averages."
+  },
+  "restate_paid_months": {
+    "2026-06": "At the June 2026 close, paid-to-date on every open month is short by the delayed payments. Claims operations' pended-inventory report gives the excess pended dollars by category. Paid is grossed up by paid / (paid + excess pended) before completion factors are applied, so the backlog is reserved for rather than read as lower cost."
+  },
+  "factor_overrides": []
+}

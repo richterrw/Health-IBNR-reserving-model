@@ -30,15 +30,42 @@ def link_ratios(cum: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(f, index=cum.index, columns=cum.columns[:-1])
 
 
-def select_straight_average(lr: pd.DataFrame, n_months: int, exclude_hi_lo: bool, max_lag: int) -> pd.Series:
-    """Straight average of the most recent ``n_months`` ratios at each lag.
+def paid_month_mask(lr: pd.DataFrame, paid_months: tuple[str, ...] | list[str]) -> pd.DataFrame:
+    """True where a link ratio's development lands in one of ``paid_months``.
 
-    The high and low are dropped when at least four ratios are available.
-    Lags at or beyond ``max_lag`` (and lags with no data) select 1.0.
+    The ratio at (incurred month i, lag k) picks up payments made in paid
+    month ``i + k + 1``, so a diagonal of the triangle is a paid month.
     """
+    excluded = {pd.Period(m, "M") for m in paid_months}
+    rows = [[(i + k + 1) in excluded for k in lr.columns] for i in lr.index]
+    return pd.DataFrame(rows, index=lr.index, columns=lr.columns, dtype=bool)
+
+
+def used_cells(lr: pd.DataFrame, n_months: int, exclude: pd.DataFrame | None = None) -> dict[int, list]:
+    """Incurred months whose ratio feeds the average at each lag."""
     out = {}
     for k in lr.columns:
-        col = lr[k].dropna().iloc[-n_months:].to_numpy()
+        col = lr[k]
+        if exclude is not None:
+            col = col[~exclude[k]]
+        out[k] = list(col.dropna().index[-n_months:])
+    return out
+
+
+def select_straight_average(
+    lr: pd.DataFrame, n_months: int, exclude_hi_lo: bool, max_lag: int, exclude: pd.DataFrame | None = None
+) -> pd.Series:
+    """Straight average of the most recent ``n_months`` ratios at each lag.
+
+    Ratios flagged in ``exclude`` are skipped (the window reaches further
+    back instead). The high and low are dropped when at least four ratios
+    are available. Lags at or beyond ``max_lag`` (and lags with no data)
+    select 1.0.
+    """
+    cells = used_cells(lr, n_months, exclude)
+    out = {}
+    for k in lr.columns:
+        col = lr.loc[cells[k], k].to_numpy()
         if k >= max_lag or col.size == 0:
             out[k] = 1.0
             continue
@@ -48,11 +75,13 @@ def select_straight_average(lr: pd.DataFrame, n_months: int, exclude_hi_lo: bool
     return pd.Series(out, name="link_ratio")
 
 
-def select_volume_weighted(cum: pd.DataFrame, n_months: int | None, max_lag: int) -> pd.Series:
+def select_volume_weighted(cum: pd.DataFrame, n_months: int | None, max_lag: int, exclude: pd.DataFrame | None = None) -> pd.Series:
     """Volume-weighted average ratio: sum C[i,k+1] / sum C[i,k]."""
     out = {}
     for k in cum.columns[:-1]:
         both = cum[[k, k + 1]].dropna()
+        if exclude is not None:
+            both = both[~exclude.loc[both.index, k]]
         if n_months is not None:
             both = both.iloc[-n_months:]
         if k >= max_lag or both.empty or both[k].sum() <= 0:
